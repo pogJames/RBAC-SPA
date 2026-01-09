@@ -4,7 +4,8 @@
       "Bash(npm install:*)",
       "Bash(test:*)",
       "Bash(npm audit:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(ls:*)"
     ]
   }
 }

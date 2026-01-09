@@ -1,89 +1,101 @@
 # Sensor Dashboard SPA
 
-A full-stack sensor monitoring dashboard with role-based access control (Guest, User, Admin).
+Full-stack sensor monitoring dashboard with JWT authentication and role-based access control.
 
 ## Stack
 
-- **Frontend**: React (Vite) + CSS Modules + Recharts
-- **Backend**: Node.js + Express
-- **Database**: SQLite (better-sqlite3)
-- **Auth**: JWT in HTTP-only cookies
-
-## Features
-
-### Layout
-- **Guest**: Sidebar (cols 1-3) + Main (cols 4-12) with guest info
-- **User/Admin**: Sidebar (cols 1-3) + Main content (cols 4-12)
-- Custom 12-column CSS Grid system
-- Light/Dark mode toggle
-
-### RBAC
-- **Guest**: View public sensors only
-- **User**: CRUD on own sensors + view private sensors
-- **Admin**: Full CRUD on all users and sensors
-
-### UI/UX
-- Responsive layouts with CSS Grid
-- Light/Dark theme support
-- Real-time sensor graphs with Recharts
-- Form validation and error handling
-- Password reset on login failure
+- **Frontend**: React (Vite), CSS Modules, Recharts
+- **Backend**: Express, SQLite (better-sqlite3)
+- **Auth**: JWT (HttpOnly cookies, SameSite: strict)
+- **Security**: Helmet, rate limiting, CSRF protection via SameSite cookies
 
 ## Quick Start
 
-### 1. Install Dependencies
-
 ```bash
-# Root dependencies (already installed)
-npm install
+# Install dependencies
+npm install && cd frontend && npm install && cd ..
 
-# Frontend dependencies (already installed)
-cd frontend
-npm install
-```
-
-### 2. Start Backend Server
-
-```bash
-# From root directory
+# Start backend (port 5000)
 npm run dev
+
+# Start frontend (port 5173) - separate terminal
+cd frontend && npm run dev
 ```
 
-Server runs on `http://localhost:5000`
+**Demo Credentials**
+- Admin: `admin` / `admin123`
+- User: `testuser` / `user123`
 
-### 3. Start Frontend Dev Server
+## Features
 
-```bash
-# From frontend directory
-cd frontend
-npm run dev
-```
+### RBAC
+- **Guest**: View public sensors
+- **User**: CRUD own sensors, view public sensors
+- **Admin**: Full CRUD on all users and sensors
 
-Frontend runs on `http://localhost:5173`
+### Security
+- JWT in HttpOnly cookies (SameSite: strict)
+- Bcrypt password hashing (10 rounds, configurable)
+- Rate limiting (100 req/15min global, 5 req/15min auth)
+- Helmet with strict CSP (no wildcards, no unsafe-inline for scripts)
+- Input validation (express-validator)
+- HPP protection
+- Parameterized SQL queries
+- OpenAPI 3.0 documentation at `/api-docs`
 
-## Demo Credentials
+### UI/UX
+- 12-column CSS Grid layout
+- Light/Dark mode toggle
+- Responsive design
+- Real-time sensor graphs (Recharts)
 
-- **Admin**: `admin` / `admin123`
-- **User**: `testuser` / `user123`
+## API Routes
+
+### `/api/auth/*` - Authentication
+- `POST /register` - Create account
+- `POST /login` - Authenticate
+- `POST /logout` - Clear session
+- `GET /me` - Get current user
+
+### `/api/sensors/*` - Sensor Management
+- `GET /public` - Public sensors (no auth)
+- `GET /private` - User's sensors + public (auth required)
+- `GET /mine` - User's own sensors only (auth required)
+- `POST /` - Create sensor
+- `PUT /:id` - Update sensor (owner/admin only)
+- `DELETE /:id` - Delete sensor (owner/admin only)
+
+### `/api/admin/*` - Admin Operations
+All routes require admin role:
+- `GET /users` - List all users
+- `PUT /users/:id` - Update user (including role)
+- `DELETE /users/:id` - Delete user
+- `GET /sensors` - List all sensors
+- `PUT /sensors/:id` - Update any sensor
+- `DELETE /sensors/:id` - Delete any sensor
 
 ## Configuration
 
-All settings can be customized via environment variables in `.env`. See [CONFIGURATION.md](./CONFIGURATION.md) for detailed documentation.
-
-**Quick config examples:**
+Set via `.env` file:
 
 ```env
-# Change JWT expiration
-JWT_EXPIRES_IN=24h
+# Server
+PORT=5000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:5173
 
-# Change token duration to 1 hour
-JWT_COOKIE_MAX_AGE=3600000
+# JWT (change JWT_SECRET in production!)
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+JWT_EXPIRES_IN=7d
+JWT_COOKIE_MAX_AGE=604800000
 
-# Increase bcrypt security
-BCRYPT_ROUNDS=12
+# Security
+BCRYPT_ROUNDS=10
 
-# Adjust rate limiting
-RATE_LIMIT_MAX_REQUESTS=50
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+AUTH_RATE_LIMIT_MAX_REQUESTS=5
 ```
 
 ## Project Structure
@@ -91,71 +103,83 @@ RATE_LIMIT_MAX_REQUESTS=50
 ```
 login/
 ├── server/
-│   ├── db.js                 # SQLite schema & seeding
-│   ├── server.js             # Express app
+│   ├── server.js          # Express app + OpenAPI config
+│   ├── config.js          # Centralized environment config
+│   ├── db.js              # SQLite schema & seeding
 │   ├── middleware/
-│   │   └── auth.js           # JWT auth middleware
+│   │   ├── auth.js        # JWT auth middleware
+│   │   └── validation.js  # Input validation
 │   └── routes/
-│       ├── auth.js           # Auth routes
-│       ├── sensors.js        # Sensor routes
-│       └── admin.js          # Admin routes
+│       ├── auth.js        # Authentication endpoints
+│       ├── sensors.js     # Sensor CRUD
+│       └── admin.js       # Admin-only operations
 ├── frontend/
 │   └── src/
-│       ├── api/
-│       │   └── client.js     # Axios config
 │       ├── components/
-│       │   ├── Layout/       # Guest & User layouts
-│       │   ├── Dashboard/    # Sensor dashboard
-│       │   ├── Sensors/      # User sensor CRUD
-│       │   ├── Admin/        # Admin panels
-│       │   └── Auth/         # Login & Register
+│       │   ├── Layout/    # GuestLayout, UserLayout
+│       │   ├── Dashboard/ # Sensor dashboard
+│       │   ├── Auth/      # Login, Register
+│       │   ├── Sensors/   # User sensor CRUD
+│       │   └── Admin/     # Admin panels
 │       ├── context/
 │       │   └── AuthContext.jsx
-│       ├── styles/
-│       │   ├── global.css
-│       │   └── grid.module.css
-│       └── App.jsx
+│       └── styles/
+│           ├── global.css
+│           └── grid.module.css
 └── .env
 ```
 
-## API Endpoints
+## Architecture Notes
 
-### Auth
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login
-- `POST /api/auth/logout` - Logout
-- `GET /api/auth/me` - Get current user
+**Why `/api/auth`, `/api/sensors`, `/api/admin` instead of `/api/guest`, `/api/user`, `/api/admin`?**
 
-### Sensors
-- `GET /api/sensors/public` - Public sensors (Guest)
-- `GET /api/sensors/private` - Private sensors (User/Admin)
-- `GET /api/sensors/mine` - User's own sensors
-- `POST /api/sensors` - Create sensor
-- `PUT /api/sensors/:id` - Update sensor
-- `DELETE /api/sensors/:id` - Delete sensor
+Routes are organized by **resource type** (REST principles), not by user role:
 
-### Admin
-- `GET /api/admin/users` - Get all users
-- `PUT /api/admin/users/:id` - Update user
-- `DELETE /api/admin/users/:id` - Delete user
-- `GET /api/admin/sensors` - Get all sensors
-- `PUT /api/admin/sensors/:id` - Update sensor
-- `DELETE /api/admin/sensors/:id` - Delete sensor
+- **`/api/auth`** - Handles authentication **actions** (login, register, logout) - not tied to any specific role
+- **`/api/sensors`** - Manages sensor **resources** - uses middleware to enforce RBAC (guest sees public, user sees own+public, admin sees all)
+- **`/api/admin`** - Admin-specific **operations** that don't fit into normal resource CRUD (user management, cross-user sensor management)
+
+This approach:
+- Follows RESTful conventions (resources, not roles)
+- Keeps middleware flexible (same endpoint can serve different roles with different data)
+- Avoids route duplication (`/api/guest/sensors` vs `/api/user/sensors` vs `/api/admin/sensors` would have overlapping logic)
+
+Example: `GET /api/sensors/public` works for **all** roles (guest, user, admin) without route duplication.
 
 ## Database Schema
 
-### Users
-- id, username, email, password (hashed), role, created_at
+**users**: id, username, email, password (hashed), role, created_at
+**sensors**: id, user_id, name, type, location, is_public, status, created_at
+**sensor_readings**: id, sensor_id, value, timestamp
 
-### Sensors
-- id, user_id, name, type, location, is_public, status, created_at
+Seeded with 2 users, 5 sensors, and 24 hours of readings.
 
-### Sensor Readings
-- id, sensor_id, value, timestamp
+## Development
 
-## Dummy Data
+```bash
+# Backend dev server
+npm run dev
 
-Database includes:
-- 2 users (admin, testuser)
-- 5 sensors (3 public, 2 private)
-- 24 hours of readings per sensor
+# Frontend dev server
+cd frontend && npm run dev
+
+# Frontend build
+cd frontend && npm run build
+
+# Lint
+cd frontend && npm run lint
+```
+
+## API Documentation
+
+- **Swagger UI**: `http://localhost:5000/api-docs`
+- **OpenAPI JSON** (for ZAP/testing): `http://localhost:5000/api-docs.json`
+
+## Security Testing
+
+Import OpenAPI spec into OWASP ZAP:
+1. Start backend: `npm run dev`
+2. In ZAP: Import > Import OpenAPI from URL
+3. Enter: `http://localhost:5000/api-docs.json`
+
+All endpoints automatically discovered for security scanning.

@@ -15,26 +15,32 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-// Middleware
-// 1. Security headers first
+app.use(cors({
+  origin: config.server.corsOrigin,
+  credentials: true
+}));
+
+// Security headers with strict CSP
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", config.server.env === 'development' ? "'unsafe-inline'" : ""].filter(Boolean),
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Required for CSS-in-JS
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", config.server.env === 'development' ? "ws://localhost:5173" : ""].filter(Boolean),
+      connectSrc: ["'self'", "http://localhost:5000", config.server.env === 'development' ? "ws://localhost:5173" : ""].filter(Boolean),
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"]
+      frameSrc: ["'none'"],
+      frameAncestors: ["'none'"]
     }
   },
-  crossOriginEmbedderPolicy: config.server.env !== 'development'
+  crossOriginEmbedderPolicy: config.server.env !== 'development',
+  frameguard: { action: 'deny' }
 }));
 
-// 2. Rate limiting
+// Rate limiting
 const globalLimiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,
@@ -44,24 +50,11 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
-// 3. CORS
-app.use(cors({
-  origin: config.server.corsOrigin,
-  credentials: true
-}));
-
-// 4. Body parsing
 app.use(express.json());
-
-// 5. Parameter pollution protection (after body parsing)
-app.use(hpp({
-  whitelist: ['status', 'type'] // Allow arrays for sensor filtering
-}));
-
-// 6. Cookie parsing
+app.use(hpp({ whitelist: ['status', 'type'] }));
 app.use(cookieParser());
 
-// Swagger/OpenAPI Configuration
+// OpenAPI/Swagger documentation
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
@@ -154,25 +147,21 @@ const swaggerOptions = {
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: 'Sensor Dashboard API Docs'
 }));
 
-// OpenAPI JSON endpoint (for ZAP import)
 app.get('/api-docs.json', (req, res) => {
   res.setHeader('Content-Type', 'application/json');
   res.send(swaggerSpec);
 });
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/sensors', sensorRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
