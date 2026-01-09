@@ -1,4 +1,4 @@
-# Sensor Dashboard SPA
+# Dashboard SPA
 
 ![alt text](<Screenshot (65).png>)
 
