@@ -1,5 +1,7 @@
 # Sensor Dashboard SPA
 
+![alt text](<Screenshot (65).png>)
+
 Full-stack sensor monitoring dashboard with JWT authentication and role-based access control.
 
 ## Stack
