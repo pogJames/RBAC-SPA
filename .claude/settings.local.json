@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

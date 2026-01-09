@@ -9,6 +9,25 @@ export default function Dashboard() {
   const [sensors, setSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  // Listen for theme changes
+  useEffect(() => {
+    const handleThemeChange = () => {
+      setTheme(localStorage.getItem('theme') || 'light');
+    };
+
+    // Check theme on mount and when localStorage changes
+    window.addEventListener('storage', handleThemeChange);
+
+    // Poll for theme changes (since storage event doesn't fire in same tab)
+    const interval = setInterval(handleThemeChange, 100);
+
+    return () => {
+      window.removeEventListener('storage', handleThemeChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     fetchSensors();
@@ -108,9 +127,13 @@ export default function Dashboard() {
               />
               <Tooltip
                 contentStyle={{
-                  background: '#fff',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '0.5rem'
+                  background: theme === 'dark' ? '#2d3748' : '#fff',
+                  border: theme === 'dark' ? '1px solid #4a5568' : '1px solid #dee2e6',
+                  borderRadius: '0.5rem',
+                  color: theme === 'dark' ? '#e2e8f0' : '#212529'
+                }}
+                labelStyle={{
+                  color: theme === 'dark' ? '#e2e8f0' : '#212529'
                 }}
               />
               <Legend />

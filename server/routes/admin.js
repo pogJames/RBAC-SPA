@@ -1,6 +1,5 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const csrf = require('csurf');
 const db = require('../db');
 const config = require('../config');
 const { requireAdmin } = require('../middleware/auth');
@@ -11,16 +10,47 @@ const router = express.Router();
 // All routes require admin role
 router.use(requireAdmin);
 
-// CSRF protection
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: config.security.cookieSecure,
-    sameSite: 'lax'
-  }
-});
-
-// GET /api/admin/users - Get all users
+/**
+ * @openapi
+ * /api/admin/users:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get all users (Admin only)
+ *     description: Retrieve list of all users in the system
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (admin role required)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/users', (req, res) => {
   try {
     const users = db.prepare('SELECT id, username, email, role, created_at FROM users').all();
@@ -30,8 +60,138 @@ router.get('/users', (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id - Update user
-router.put('/users/:id', csrfProtection, userUpdateValidation, validate, async (req, res) => {
+/**
+ * @openapi
+ * /api/admin/users/{id}:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     summary: Update user (Admin only)
+ *     description: Update any user's information including role
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 30
+ *                 example: updated_user
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: updated@example.com
+ *               role:
+ *                 type: string
+ *                 enum: [guest, user, admin]
+ *                 example: user
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: newpassword123
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (admin role required)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   delete:
+ *     tags:
+ *       - Admin
+ *     summary: Delete user (Admin only)
+ *     description: Delete any user from the system
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: User deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (admin role required)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.put('/users/:id', userUpdateValidation, validate, async (req, res) => {
   try {
     const { id } = req.params;
     const { username, email, role, password } = req.body;
@@ -60,7 +220,7 @@ router.put('/users/:id', csrfProtection, userUpdateValidation, validate, async (
 });
 
 // DELETE /api/admin/users/:id - Delete user
-router.delete('/users/:id', csrfProtection, (req, res) => {
+router.delete('/users/:id', (req, res) => {
   try {
     const { id } = req.params;
 
@@ -76,7 +236,47 @@ router.delete('/users/:id', csrfProtection, (req, res) => {
   }
 });
 
-// GET /api/admin/sensors - Get all sensors
+/**
+ * @openapi
+ * /api/admin/sensors:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get all sensors (Admin only)
+ *     description: Retrieve list of all sensors with readings
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Sensors retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensors:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Sensor'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (admin role required)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/sensors', (req, res) => {
   try {
     const sensors = db.prepare(`
@@ -90,8 +290,134 @@ router.get('/sensors', (req, res) => {
   }
 });
 
-// PUT /api/admin/sensors/:id - Update any sensor
-router.put('/sensors/:id', csrfProtection, (req, res) => {
+/**
+ * @openapi
+ * /api/admin/sensors/{id}:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     summary: Update any sensor (Admin only)
+ *     description: Update any sensor regardless of ownership
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Sensor ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Admin Updated Sensor
+ *               type:
+ *                 type: string
+ *                 enum: [temperature, humidity, pressure, light, motion, sound]
+ *                 example: temperature
+ *               location:
+ *                 type: string
+ *                 maxLength: 200
+ *                 example: Server Room
+ *               is_public:
+ *                 type: boolean
+ *                 example: false
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, maintenance]
+ *                 example: maintenance
+ *     responses:
+ *       200:
+ *         description: Sensor updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensor:
+ *                   $ref: '#/components/schemas/Sensor'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (admin role required)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   delete:
+ *     tags:
+ *       - Admin
+ *     summary: Delete any sensor (Admin only)
+ *     description: Delete any sensor regardless of ownership
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Sensor ID
+ *     responses:
+ *       200:
+ *         description: Sensor deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Sensor deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (admin role required)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.put('/sensors/:id', (req, res) => {
   try {
     const { id } = req.params;
     const { name, type, location, is_public, status } = req.body;
@@ -113,7 +439,7 @@ router.put('/sensors/:id', csrfProtection, (req, res) => {
 });
 
 // DELETE /api/admin/sensors/:id - Delete any sensor
-router.delete('/sensors/:id', csrfProtection, (req, res) => {
+router.delete('/sensors/:id', (req, res) => {
   try {
     const { id } = req.params;
 

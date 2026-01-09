@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -9,9 +9,25 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [passwordValidation, setPasswordValidation] = useState({
+    minLength: false,
+    hasUppercase: false,
+    hasNumber: false,
+    hasSymbol: false
+  });
   const { register } = useAuth();
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+
+  // Real-time password validation
+  useEffect(() => {
+    setPasswordValidation({
+      minLength: password.length >= 9,
+      hasUppercase: /[A-Z]/.test(password),
+      hasNumber: /[0-9]/.test(password),
+      hasSymbol: /[!@#$%^&*()_+\-=\[\]{}|;:'",.<>?/~`]/.test(password)
+    });
+  }, [password]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,6 +84,29 @@ export default function Register() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {password.length > 0 && (
+              <div className={styles.passwordRequirements}>
+                <p className={styles.requirementsTitle}>Password must contain:</p>
+                <div className={styles.requirementsList}>
+                  <div className={`${styles.requirement} ${passwordValidation.minLength ? styles.valid : styles.invalid}`}>
+                    <span className={styles.icon}>{passwordValidation.minLength ? '✓' : '○'}</span>
+                    <span>At least 9 characters</span>
+                  </div>
+                  <div className={`${styles.requirement} ${passwordValidation.hasUppercase ? styles.valid : styles.invalid}`}>
+                    <span className={styles.icon}>{passwordValidation.hasUppercase ? '✓' : '○'}</span>
+                    <span>One uppercase letter (A-Z)</span>
+                  </div>
+                  <div className={`${styles.requirement} ${passwordValidation.hasNumber ? styles.valid : styles.invalid}`}>
+                    <span className={styles.icon}>{passwordValidation.hasNumber ? '✓' : '○'}</span>
+                    <span>One number (0-9)</span>
+                  </div>
+                  <div className={`${styles.requirement} ${passwordValidation.hasSymbol ? styles.valid : styles.invalid}`}>
+                    <span className={styles.icon}>{passwordValidation.hasSymbol ? '✓' : '○'}</span>
+                    <span>One symbol (!@#$%^&*...)</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>

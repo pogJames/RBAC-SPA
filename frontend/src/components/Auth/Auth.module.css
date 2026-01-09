@@ -80,3 +80,58 @@
   display: block;
   margin-bottom: 0.5rem;
 }
+
+.passwordRequirements {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.requirementsTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+
+.requirementsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.requirement {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  transition: color 0.2s;
+}
+
+.requirement .icon {
+  font-weight: bold;
+  font-size: 1rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.requirement.valid {
+  color: #28a745;
+}
+
+.requirement.valid .icon {
+  color: #28a745;
+}
+
+.requirement.invalid {
+  color: var(--text-secondary);
+}
+
+.requirement.invalid .icon {
+  color: var(--text-tertiary);
+}

@@ -35,7 +35,7 @@ module.exports = {
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS) || 10,
     cookieSecure: process.env.NODE_ENV === 'production',
     cookieHttpOnly: true,
-    cookieSameSite: 'lax'
+    cookieSameSite: 'strict'
   },
 
   // Helmet Configuration

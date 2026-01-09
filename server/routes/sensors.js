@@ -1,5 +1,4 @@
 const express = require('express');
-const csrf = require('csurf');
 const db = require('../db');
 const config = require('../config');
 const { optionalAuth, requireAuth, requireOwnerOrAdmin } = require('../middleware/auth');
@@ -35,16 +34,33 @@ const getSensorsForUser = (userId, isAdmin) => {
   }
 };
 
-// CSRF protection
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: config.security.cookieSecure,
-    sameSite: 'lax'
-  }
-});
-
-// GET /api/sensors/public - Guest access (public sensors only)
+/**
+ * @openapi
+ * /api/sensors/public:
+ *   get:
+ *     tags:
+ *       - Sensors
+ *     summary: Get public sensors
+ *     description: Get all public sensors (no authentication required)
+ *     responses:
+ *       200:
+ *         description: Public sensors retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensors:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Sensor'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/public', (req, res) => {
   try {
     const sensors = db.prepare(`
@@ -67,7 +83,41 @@ router.get('/public', (req, res) => {
   }
 });
 
-// GET /api/sensors/private - User/Admin access (own + public sensors)
+/**
+ * @openapi
+ * /api/sensors/private:
+ *   get:
+ *     tags:
+ *       - Sensors
+ *     summary: Get private sensors
+ *     description: Get user's own sensors + public sensors (admins see all sensors)
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Sensors retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensors:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Sensor'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/private', requireAuth, (req, res) => {
   try {
     const sensors = getSensorsForUser(req.user.id, req.user.role === 'admin');
@@ -83,7 +133,41 @@ router.get('/private', requireAuth, (req, res) => {
   }
 });
 
-// GET /api/sensors/mine - User's own sensors
+/**
+ * @openapi
+ * /api/sensors/mine:
+ *   get:
+ *     tags:
+ *       - Sensors
+ *     summary: Get own sensors
+ *     description: Get only the current user's sensors
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: User sensors retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensors:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Sensor'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/mine', requireAuth, (req, res) => {
   try {
     const sensors = db.prepare('SELECT * FROM sensors WHERE user_id = ?').all(req.user.id);
@@ -93,8 +177,71 @@ router.get('/mine', requireAuth, (req, res) => {
   }
 });
 
-// POST /api/sensors - Create sensor (User/Admin)
-router.post('/', requireAuth, csrfProtection, sensorValidation, validate, (req, res) => {
+/**
+ * @openapi
+ * /api/sensors:
+ *   post:
+ *     tags:
+ *       - Sensors
+ *     summary: Create sensor
+ *     description: Create a new sensor (requires authentication)
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - type
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Living Room Temperature
+ *               type:
+ *                 type: string
+ *                 enum: [temperature, humidity, pressure, light, motion, sound]
+ *                 example: temperature
+ *               location:
+ *                 type: string
+ *                 maxLength: 200
+ *                 example: Living Room
+ *               is_public:
+ *                 type: boolean
+ *                 example: false
+ *     responses:
+ *       200:
+ *         description: Sensor created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensor:
+ *                   $ref: '#/components/schemas/Sensor'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/', requireAuth, sensorValidation, validate, (req, res) => {
   try {
     const { name, type, location, is_public } = req.body;
 
@@ -113,11 +260,145 @@ router.post('/', requireAuth, csrfProtection, sensorValidation, validate, (req, 
   }
 });
 
-// PUT /api/sensors/:id - Update own sensor
+/**
+ * @openapi
+ * /api/sensors/{id}:
+ *   put:
+ *     tags:
+ *       - Sensors
+ *     summary: Update sensor
+ *     description: Update own sensor (or any sensor if admin)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Sensor ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - type
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Updated Sensor Name
+ *               type:
+ *                 type: string
+ *                 enum: [temperature, humidity, pressure, light, motion, sound]
+ *                 example: temperature
+ *               location:
+ *                 type: string
+ *                 maxLength: 200
+ *                 example: Bedroom
+ *               is_public:
+ *                 type: boolean
+ *                 example: true
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, maintenance]
+ *                 example: active
+ *     responses:
+ *       200:
+ *         description: Sensor updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sensor:
+ *                   $ref: '#/components/schemas/Sensor'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (not owner or admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *   delete:
+ *     tags:
+ *       - Sensors
+ *     summary: Delete sensor
+ *     description: Delete own sensor (or any sensor if admin)
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Sensor ID
+ *     responses:
+ *       200:
+ *         description: Sensor deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Sensor deleted successfully
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Not authorized (not owner or admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Sensor not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.put('/:id',
   requireAuth,
   requireOwnerOrAdmin(getSensorById),
-  csrfProtection,
   sensorValidation,
   validate,
   (req, res) => {
@@ -141,7 +422,6 @@ router.put('/:id',
 router.delete('/:id',
   requireAuth,
   requireOwnerOrAdmin(getSensorById),
-  csrfProtection,
   (req, res) => {
     try {
       const { id } = req.params;
