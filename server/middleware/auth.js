@@ -88,10 +88,39 @@ const requireAdmin = (req, res, next) => {
   }
 };
 
+// Require owner or admin (for resource access control)
+const requireOwnerOrAdmin = (resourceGetter) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Admin always has access
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    // Check ownership
+    try {
+      const resource = resourceGetter(req.params.id);
+      if (!resource) {
+        return res.status(404).json({ error: 'Resource not found' });
+      }
+      if (resource.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Not authorized to access this resource' });
+      }
+      req.resource = resource; // Attach to req to avoid duplicate query
+      next();
+    } catch (err) {
+      return res.status(500).json({ error: 'Error checking permissions' });
+    }
+  };
+};
+
 module.exports = {
   optionalAuth,
   requireAuth,
   requireRole,
   requireAdmin,
-  JWT_SECRET
+  requireOwnerOrAdmin
 };

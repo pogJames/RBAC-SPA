@@ -1,13 +1,24 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const csrf = require('csurf');
 const db = require('../db');
 const config = require('../config');
 const { requireAdmin } = require('../middleware/auth');
+const { userUpdateValidation, validate } = require('../middleware/validation');
 
 const router = express.Router();
 
 // All routes require admin role
 router.use(requireAdmin);
+
+// CSRF protection
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: config.security.cookieSecure,
+    sameSite: 'lax'
+  }
+});
 
 // GET /api/admin/users - Get all users
 router.get('/users', (req, res) => {
@@ -20,7 +31,7 @@ router.get('/users', (req, res) => {
 });
 
 // PUT /api/admin/users/:id - Update user
-router.put('/users/:id', async (req, res) => {
+router.put('/users/:id', csrfProtection, userUpdateValidation, validate, async (req, res) => {
   try {
     const { id } = req.params;
     const { username, email, role, password } = req.body;
@@ -49,7 +60,7 @@ router.put('/users/:id', async (req, res) => {
 });
 
 // DELETE /api/admin/users/:id - Delete user
-router.delete('/users/:id', (req, res) => {
+router.delete('/users/:id', csrfProtection, (req, res) => {
   try {
     const { id } = req.params;
 
@@ -80,7 +91,7 @@ router.get('/sensors', (req, res) => {
 });
 
 // PUT /api/admin/sensors/:id - Update any sensor
-router.put('/sensors/:id', (req, res) => {
+router.put('/sensors/:id', csrfProtection, (req, res) => {
   try {
     const { id } = req.params;
     const { name, type, location, is_public, status } = req.body;
@@ -102,7 +113,7 @@ router.put('/sensors/:id', (req, res) => {
 });
 
 // DELETE /api/admin/sensors/:id - Delete any sensor
-router.delete('/sensors/:id', (req, res) => {
+router.delete('/sensors/:id', csrfProtection, (req, res) => {
   try {
     const { id } = req.params;
 

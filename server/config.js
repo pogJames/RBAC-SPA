@@ -12,6 +12,12 @@ module.exports = {
     maxRequests: process.env.RATE_LIMIT_MAX_REQUESTS || 100 // max requests per window
   },
 
+  // Auth Rate Limiting (stricter for authentication endpoints)
+  authRateLimit: {
+    windowMs: process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000, // 15 minutes
+    maxRequests: process.env.AUTH_RATE_LIMIT_MAX_REQUESTS || 5 // max auth attempts per window
+  },
+
   // Server Configuration
   server: {
     port: process.env.PORT || 5000,
@@ -30,5 +36,10 @@ module.exports = {
     cookieSecure: process.env.NODE_ENV === 'production',
     cookieHttpOnly: true,
     cookieSameSite: 'lax'
+  },
+
+  // Helmet Configuration
+  helmet: {
+    strictCSP: process.env.NODE_ENV === 'production'
   }
 };

@@ -1,15 +1,40 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
+const csrf = require('csurf');
 const db = require('../db');
 const config = require('../config');
-const { JWT_SECRET, requireAuth } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const { validatePassword } = require('../utils/passwordValidator');
+const { registerValidation, loginValidation, validate } = require('../middleware/validation');
 
 const router = express.Router();
 
+// Auth-specific rate limiter (stricter than global)
+const authLimiter = rateLimit({
+  windowMs: config.authRateLimit.windowMs,
+  max: config.authRateLimit.maxRequests,
+  skipSuccessfulRequests: true,
+  message: { error: 'Too many authentication attempts, please try again later' }
+});
+
+// CSRF protection
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: config.security.cookieSecure,
+    sameSite: 'lax'
+  }
+});
+
+// CSRF token endpoint
+router.get('/csrf-token', csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+});
+
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, csrfProtection, registerValidation, validate, async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
@@ -43,7 +68,7 @@ router.post('/register', async (req, res) => {
     const user = db.prepare('SELECT id, username, email, role FROM users WHERE id = ?').get(result.lastInsertRowid);
 
     // Generate token
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: config.jwt.expiresIn });
+    const token = jwt.sign({ userId: user.id }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
 
     res.cookie('token', token, {
       httpOnly: config.security.cookieHttpOnly,
@@ -59,7 +84,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, csrfProtection, loginValidation, validate, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -80,7 +105,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Generate token
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: config.jwt.expiresIn });
+    const token = jwt.sign({ userId: user.id }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
 
     res.cookie('token', token, {
       httpOnly: config.security.cookieHttpOnly,
@@ -103,7 +128,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Logout
-router.post('/logout', (req, res) => {
+router.post('/logout', csrfProtection, (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'Logged out successfully' });
 });

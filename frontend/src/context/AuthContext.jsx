@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import api from '../api/client';
+import api, { initializeCsrf } from '../api/client';
 
 const AuthContext = createContext(null);
 
@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     const { data } = await api.post('/auth/login', { username, password });
     setUser(data.user);
+    await initializeCsrf(); // Refresh CSRF token after login
     return data;
   };
 
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     await api.post('/auth/logout');
     setUser(null);
+    await initializeCsrf(); // Refresh CSRF token after logout
   };
 
   const handleSessionExpired = () => {
