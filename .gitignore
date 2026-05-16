@@ -1,0 +1,6 @@
+.playwright-mcp
+.dockerignore
+.docker-compose
+DOCKER.md
+docker-compose.yml
+Dockerfile

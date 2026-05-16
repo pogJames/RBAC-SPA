@@ -172,6 +172,24 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Serve static frontend files in production
+const path = require('path');
+if (config.server.env === 'production') {
+  const frontendPath = path.join(__dirname, '../frontend/dist');
+
+  // Serve static files
+  app.use(express.static(frontendPath));
+
+  // Handle client-side routing - serve index.html for all non-API routes
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(frontendPath, 'index.html'));
+    } else {
+      next();
+    }
+  });
+}
+
 app.listen(config.server.port, () => {
   console.log(`Server running on http://localhost:${config.server.port}`);
   console.log(`Environment: ${config.server.env}`);
